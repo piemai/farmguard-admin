@@ -1,11 +1,12 @@
 import { initializeApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
+import { getAuth } from "firebase/auth";
 
-// 🔥 Replace this with your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCV2soceMd3MRgSsoja0XRV-mJxBltyWnI",
   authDomain: "farmguard-78439.firebaseapp.com",
-  databaseURL: "https://farmguard-78439-default-rtdb.asia-southeast1.firebasedatabase.app",
+  databaseURL:
+    "https://farmguard-78439-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "farmguard-78439",
   storageBucket: "farmguard-78439.firebasestorage.app",
   messagingSenderId: "370464069273",
@@ -15,3 +16,4 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 export const db = getDatabase(app);
+export const auth = getAuth(app);
