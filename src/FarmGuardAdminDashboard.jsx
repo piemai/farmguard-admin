@@ -12,8 +12,9 @@ import {
 } from "recharts";
 
 export default function FarmGuardAdminDashboard() {
-  const [temperature, setTemperature] = useState(0);
-  const [humidity, setHumidity] = useState(0);
+
+  const [temperature, setTemperature] = useState(null);
+  const [humidity, setHumidity] = useState(null);
 
   const [tempHistory, setTempHistory] = useState([]);
   const [humHistory, setHumHistory] = useState([]);
@@ -24,47 +25,119 @@ export default function FarmGuardAdminDashboard() {
 
   const [activePage, setActivePage] = useState("dashboard");
 
+  const [lastUpdate, setLastUpdate] = useState(0);
+
   // ================= FIREBASE =================
   useEffect(() => {
+
     const tempRef = ref(db, "sensor/temperature");
     const humRef = ref(db, "sensor/humidity");
+    const statusRef = ref(db, "sensor/status");
+    const lastUpdateRef = ref(db, "sensor/lastUpdate");
 
+    // ================= TEMPERATURE =================
     onValue(tempRef, (snap) => {
-      const val = snap.val() || 0;
 
-      setTemperature(val);
-      setConnected(true);
+      const val = snap.val();
 
-      setTempHistory((prev) => {
-        const updated = [...prev, { value: val }];
+      if (val !== null) {
 
-        if (updated.length > 10) {
-          updated.shift();
-        }
+        setTemperature(val);
 
-        return updated;
-      });
+        setTempHistory((prev) => {
+
+          const updated = [...prev, { value: val }];
+
+          if (updated.length > 10) {
+            updated.shift();
+          }
+
+          return updated;
+        });
+      }
     });
 
+    // ================= HUMIDITY =================
     onValue(humRef, (snap) => {
-      const val = snap.val() || 0;
 
-      setHumidity(val);
+      const val = snap.val();
 
-      setHumHistory((prev) => {
-        const updated = [...prev, { value: val }];
+      if (val !== null) {
 
-        if (updated.length > 10) {
-          updated.shift();
-        }
+        setHumidity(val);
 
-        return updated;
-      });
+        setHumHistory((prev) => {
+
+          const updated = [...prev, { value: val }];
+
+          if (updated.length > 10) {
+            updated.shift();
+          }
+
+          return updated;
+        });
+      }
     });
+
+    // ================= LAST UPDATE =================
+    onValue(lastUpdateRef, (snap) => {
+
+      const val = snap.val();
+
+      if (val) {
+        setLastUpdate(val);
+      }
+    });
+
+    // ================= STATUS =================
+    onValue(statusRef, (snap) => {
+
+      const val = snap.val();
+
+      if (val === "online") {
+
+        setConnected(true);
+
+      } else {
+
+        setConnected(false);
+
+        setTemperature(null);
+        setHumidity(null);
+      }
+    });
+
   }, []);
 
+  // ================= OFFLINE DETECTION =================
+  useEffect(() => {
+
+    const interval = setInterval(() => {
+
+      const now = Date.now();
+
+      // if no update in 10 seconds
+      if (now - lastUpdate > 10000) {
+
+        setConnected(false);
+
+        setTemperature(null);
+        setHumidity(null);
+      }
+
+    }, 3000);
+
+    return () => clearInterval(interval);
+
+  }, [lastUpdate]);
+
   // ================= ALERT =================
-  const alertActive = temperature > 35 || humidity > 75;
+  const alertActive =
+    connected &&
+    (
+      (temperature !== null && temperature > 35) ||
+      (humidity !== null && humidity > 75)
+    );
 
   // ================= SIDEBAR =================
   const navItem = (page, label) => (
@@ -86,7 +159,7 @@ export default function FarmGuardAdminDashboard() {
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-green-50 via-emerald-50 to-teal-100">
 
-      {/* MOBILE MENU BUTTON */}
+      {/* MOBILE MENU */}
       <button
         className="md:hidden fixed top-4 left-4 z-50 bg-green-600 text-white px-4 py-2 rounded-xl shadow-lg"
         onClick={() => setMenuOpen(!menuOpen)}
@@ -100,6 +173,7 @@ export default function FarmGuardAdminDashboard() {
           menuOpen ? "left-0" : "-left-72 md:left-0"
         }`}
       >
+
         <h2 className="text-2xl font-bold text-green-700 mb-8">
           🌿 FarmGuard
         </h2>
@@ -114,27 +188,41 @@ export default function FarmGuardAdminDashboard() {
 
         {/* STATUS */}
         <div className="mt-10 p-4 bg-green-50 rounded-2xl">
-          <p className="text-sm text-gray-500">System Status</p>
+
+          <p className="text-sm text-gray-500">
+            System Status
+          </p>
 
           <div className="flex items-center gap-2 mt-2">
+
             <span
               className={`w-3 h-3 rounded-full ${
-                connected ? "bg-green-500 animate-pulse" : "bg-red-500"
+                connected
+                  ? "bg-green-500 animate-pulse"
+                  : "bg-red-500"
               }`}
             ></span>
 
-            <p className="font-bold text-green-700">
+            <p
+              className={`font-bold ${
+                connected
+                  ? "text-green-700"
+                  : "text-red-600"
+              }`}
+            >
               {connected ? "ONLINE" : "OFFLINE"}
             </p>
+
           </div>
         </div>
       </div>
 
-      {/* MAIN CONTENT */}
+      {/* MAIN */}
       <div className="flex-1 p-6">
 
         {/* HEADER */}
         <div className="mb-8 mt-12 md:mt-0">
+
           <h1 className="text-4xl font-extrabold text-green-800">
             FarmGuard Dashboard
           </h1>
@@ -142,51 +230,77 @@ export default function FarmGuardAdminDashboard() {
           <p className="text-green-600">
             Smart Agriculture Monitoring System
           </p>
+
         </div>
 
         {/* ================= DASHBOARD ================= */}
         {activePage === "dashboard" && (
           <>
+
             {/* CARDS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
 
-              {/* TEMP CARD */}
+              {/* TEMPERATURE */}
               <div className="bg-white p-6 rounded-3xl shadow-lg">
+
                 <h2 className="text-gray-600 font-semibold">
                   🌡 Temperature
                 </h2>
 
                 <p className="text-5xl font-bold text-orange-500 mt-4">
-                  {temperature}°C
+
+                  {
+                    connected && temperature !== null
+                      ? `${temperature}°C`
+                      : "NO DATA"
+                  }
+
                 </p>
 
                 <div className="w-full bg-orange-100 rounded-full h-3 mt-5">
+
                   <div
                     className="bg-orange-500 h-3 rounded-full"
                     style={{
-                      width: `${Math.min((temperature / 50) * 100, 100)}%`,
+                      width:
+                        connected && temperature !== null
+                          ? `${Math.min((temperature / 50) * 100, 100)}%`
+                          : "0%",
                     }}
                   ></div>
+
                 </div>
               </div>
 
-              {/* HUMIDITY CARD */}
+              {/* HUMIDITY */}
               <div className="bg-white p-6 rounded-3xl shadow-lg">
+
                 <h2 className="text-gray-600 font-semibold">
                   💧 Humidity
                 </h2>
 
                 <p className="text-5xl font-bold text-blue-500 mt-4">
-                  {humidity}%
+
+                  {
+                    connected && humidity !== null
+                      ? `${humidity}%`
+                      : "NO DATA"
+                  }
+
                 </p>
 
                 <div className="w-full bg-blue-100 rounded-full h-3 mt-5">
+
                   <div
                     className="bg-blue-500 h-3 rounded-full"
                     style={{
-                      width: `${Math.min(humidity, 100)}%`,
+                      width:
+                        connected && humidity !== null
+                          ? `${Math.min(humidity, 100)}%`
+                          : "0%",
                     }}
                   ></div>
+
                 </div>
               </div>
             </div>
@@ -196,14 +310,19 @@ export default function FarmGuardAdminDashboard() {
 
               {/* TEMP GRAPH */}
               <div className="bg-white p-6 rounded-3xl shadow-lg">
+
                 <h2 className="font-bold text-xl mb-4">
                   📈 Temperature Trend
                 </h2>
 
                 <ResponsiveContainer width="100%" height={300}>
+
                   <LineChart data={tempHistory}>
+
                     <XAxis />
+
                     <YAxis />
+
                     <Tooltip />
 
                     <Line
@@ -212,20 +331,27 @@ export default function FarmGuardAdminDashboard() {
                       stroke="#f97316"
                       strokeWidth={3}
                     />
+
                   </LineChart>
+
                 </ResponsiveContainer>
               </div>
 
-              {/* HUM GRAPH */}
+              {/* HUMIDITY GRAPH */}
               <div className="bg-white p-6 rounded-3xl shadow-lg">
+
                 <h2 className="font-bold text-xl mb-4">
                   💧 Humidity Trend
                 </h2>
 
                 <ResponsiveContainer width="100%" height={300}>
+
                   <LineChart data={humHistory}>
+
                     <XAxis />
+
                     <YAxis />
+
                     <Tooltip />
 
                     <Line
@@ -234,7 +360,9 @@ export default function FarmGuardAdminDashboard() {
                       stroke="#3b82f6"
                       strokeWidth={3}
                     />
+
                   </LineChart>
+
                 </ResponsiveContainer>
               </div>
             </div>
@@ -243,7 +371,9 @@ export default function FarmGuardAdminDashboard() {
 
         {/* ================= LIVE ================= */}
         {activePage === "live" && (
+
           <div className="bg-white p-6 rounded-3xl shadow-lg">
+
             <h2 className="text-2xl font-bold text-green-700 mb-6">
               📡 Live Sensor Monitoring
             </h2>
@@ -251,18 +381,32 @@ export default function FarmGuardAdminDashboard() {
             <div className="space-y-5">
 
               <div className="flex justify-between text-lg">
+
                 <span>Temperature</span>
 
                 <span className="font-bold text-orange-500">
-                  {temperature}°C
+
+                  {
+                    connected && temperature !== null
+                      ? `${temperature}°C`
+                      : "NO DATA"
+                  }
+
                 </span>
               </div>
 
               <div className="flex justify-between text-lg">
+
                 <span>Humidity</span>
 
                 <span className="font-bold text-blue-500">
-                  {humidity}%
+
+                  {
+                    connected && humidity !== null
+                      ? `${humidity}%`
+                      : "NO DATA"
+                  }
+
                 </span>
               </div>
             </div>
@@ -271,13 +415,31 @@ export default function FarmGuardAdminDashboard() {
 
         {/* ================= ALERTS ================= */}
         {activePage === "alerts" && (
+
           <div className="bg-white p-6 rounded-3xl shadow-lg">
+
             <h2 className="text-2xl font-bold text-red-600 mb-6">
               ⚠ Alert Center
             </h2>
 
-            {alertActive ? (
+            {!connected ? (
+
+              <div className="bg-gray-100 border border-gray-300 p-5 rounded-2xl">
+
+                <p className="text-gray-700 font-bold text-xl">
+                  DEVICE OFFLINE
+                </p>
+
+                <p className="text-gray-500 mt-2">
+                  No real-time sensor data available.
+                </p>
+
+              </div>
+
+            ) : alertActive ? (
+
               <div className="bg-red-50 border border-red-300 p-5 rounded-2xl">
+
                 <p className="text-red-700 font-bold text-xl">
                   WARNING DETECTED
                 </p>
@@ -285,9 +447,13 @@ export default function FarmGuardAdminDashboard() {
                 <p className="text-red-500 mt-2">
                   Temperature or humidity exceeded safe level.
                 </p>
+
               </div>
+
             ) : (
+
               <div className="bg-green-50 border border-green-300 p-5 rounded-2xl">
+
                 <p className="text-green-700 font-bold text-xl">
                   All Systems Normal
                 </p>
@@ -295,6 +461,7 @@ export default function FarmGuardAdminDashboard() {
                 <p className="text-green-500 mt-2">
                   No active alerts detected.
                 </p>
+
               </div>
             )}
           </div>
@@ -302,22 +469,30 @@ export default function FarmGuardAdminDashboard() {
 
         {/* ================= HISTORY ================= */}
         {activePage === "history" && (
+
           <div className="bg-white p-6 rounded-3xl shadow-lg">
+
             <h2 className="text-2xl font-bold text-green-700 mb-6">
               📈 Sensor History
             </h2>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
+              {/* TEMP HISTORY */}
               <div>
+
                 <h3 className="font-semibold mb-3">
                   Temperature History
                 </h3>
 
                 <ResponsiveContainer width="100%" height={250}>
+
                   <LineChart data={tempHistory}>
+
                     <XAxis />
+
                     <YAxis />
+
                     <Tooltip />
 
                     <Line
@@ -326,19 +501,27 @@ export default function FarmGuardAdminDashboard() {
                       stroke="#f97316"
                       strokeWidth={3}
                     />
+
                   </LineChart>
+
                 </ResponsiveContainer>
               </div>
 
+              {/* HUM HISTORY */}
               <div>
+
                 <h3 className="font-semibold mb-3">
                   Humidity History
                 </h3>
 
                 <ResponsiveContainer width="100%" height={250}>
+
                   <LineChart data={humHistory}>
+
                     <XAxis />
+
                     <YAxis />
+
                     <Tooltip />
 
                     <Line
@@ -347,7 +530,9 @@ export default function FarmGuardAdminDashboard() {
                       stroke="#3b82f6"
                       strokeWidth={3}
                     />
+
                   </LineChart>
+
                 </ResponsiveContainer>
               </div>
             </div>
@@ -356,7 +541,9 @@ export default function FarmGuardAdminDashboard() {
 
         {/* ================= SETTINGS ================= */}
         {activePage === "settings" && (
+
           <div className="bg-white p-6 rounded-3xl shadow-lg">
+
             <h2 className="text-2xl font-bold text-green-700 mb-6">
               ⚙ System Settings
             </h2>
@@ -381,23 +568,20 @@ export default function FarmGuardAdminDashboard() {
               </div>
 
               <div className="flex justify-between">
-                <span>Connection</span>
-                <span className="font-bold text-green-600">
-                  Real-time
+
+                <span>Status</span>
+
+                <span
+                  className={`font-bold ${
+                    connected
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {connected ? "Active" : "Offline"}
                 </span>
+
               </div>
-
-              <div className="flex justify-between">
-  <span>Status</span>
-
-    <span
-    className={`font-bold ${
-      connected ? "text-green-600" : "text-red-600"
-    }`}
-  >
-    {connected ? "Active" : "Offline"}
-  </span>
-</div>
             </div>
           </div>
         )}
@@ -406,6 +590,7 @@ export default function FarmGuardAdminDashboard() {
         <div className="text-center text-gray-500 text-sm mt-10">
           FarmGuard © 2026 • Smart Farming IoT System
         </div>
+
       </div>
     </div>
   );

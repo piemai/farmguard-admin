@@ -6,15 +6,36 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
 
+    setError("");
+    setLoading(true);
+
+    // ❌ OFFLINE CHECK
+    if (!navigator.onLine) {
+      setError("You are offline. Please connect to internet.");
+      setLoading(false);
+      return;
+    }
+
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (err) {
-      setError("Invalid credentials");
+      console.log(err.code);
+
+      if (err.code === "auth/network-request-failed") {
+        setError("Network error. Check your internet.");
+      } else if (err.code === "auth/invalid-credential") {
+        setError("Wrong email or password.");
+      } else {
+        setError("Login failed.");
+      }
     }
+
+    setLoading(false);
   };
 
   return (
@@ -47,10 +68,11 @@ export default function Login() {
         )}
 
         <button
-          className="w-full bg-green-600 text-white py-3 rounded-xl"
+          className="w-full bg-green-600 text-white py-3 rounded-xl disabled:opacity-50"
           type="submit"
+          disabled={loading}
         >
-          Login
+          {loading ? "Logging in..." : "Login"}
         </button>
       </form>
     </div>

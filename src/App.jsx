@@ -5,14 +5,31 @@ import { auth } from "./firebase";
 import Login from "./Login";
 import FarmGuardAdminDashboard from "./FarmGuardAdminDashboard";
 
-// ✅ ONLY THESE USERS CAN ENTER
 const ADMIN_EMAILS = ["admin@farmguard.com"];
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
+  // ================= INTERNET CHECK =================
+  useEffect(() => {
+    const updateOnlineStatus = () => {
+      setIsOffline(!navigator.onLine);
+    };
+
+    updateOnlineStatus();
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+
+    return () => {
+      window.removeEventListener("online", updateOnlineStatus);
+      window.removeEventListener("offline", updateOnlineStatus);
+    };
+  }, []);
+
+  // ================= AUTH STATE =================
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -37,12 +54,28 @@ export default function App() {
     );
   }
 
-  // ❌ NOT LOGGED IN → LOGIN PAGE
+  // ❌ OFFLINE LOGIN BLOCK MESSAGE
+  if (isOffline && !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-yellow-50">
+        <div className="text-center bg-white p-8 rounded-2xl shadow-lg">
+          <h1 className="text-2xl font-bold text-yellow-600">
+            No Internet Connection
+          </h1>
+          <p className="text-gray-600 mt-2">
+            Login requires internet connection (Firebase Auth).
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ❌ NOT LOGGED IN
   if (!user) {
     return <Login />;
   }
 
-  // ❌ LOGGED IN BUT NOT ADMIN → BLOCK ACCESS
+  // ❌ NOT ADMIN
   if (!isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-red-50">
@@ -65,10 +98,16 @@ export default function App() {
     );
   }
 
-  // ✅ ADMIN ONLY
+  // ✅ ADMIN DASHBOARD
   return (
     <>
-      <div className="fixed top-4 right-4 z-50">
+      <div className="fixed top-4 right-4 z-50 flex gap-2">
+        {isOffline && (
+          <span className="bg-yellow-500 text-white px-3 py-1 rounded-xl text-sm">
+            Offline Mode
+          </span>
+        )}
+
         <button
           onClick={() => signOut(auth)}
           className="bg-red-500 text-white px-4 py-2 rounded-xl"
