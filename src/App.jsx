@@ -5,7 +5,7 @@ import { auth } from "./firebase";
 import Login from "./Login";
 import FarmGuardAdminDashboard from "./FarmGuardAdminDashboard";
 
-// ✅ ONLY THESE USERS CAN ENTER
+//  ONLY THESE USERS CAN ENTER
 const ADMIN_EMAILS = ["admin@farmguard.com"];
 
 export default function App() {
@@ -65,7 +65,7 @@ export default function App() {
     );
   }
 
-  // ✅ ADMIN ONLY
+  //  ADMIN ONLY
   return (
     <>
       <div className="fixed top-4 right-4 z-50">
